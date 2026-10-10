@@ -1,0 +1,629 @@
+{
+ "effect_types": [
+  {
+   "canonical": "deal_damage",
+   "gloss": "Core offensive primitive: deal HP damage via an attack to one or more Pokemon (Active by default; snipe/spread set the target slot). Subject to Weakness/Resistance unless an ignore_* modifier is present. Base may be 0 with all damage from scaling/coin modifiers (the 'real damage in text, engine damage field unreliable' family). Vanilla 'empty text + nonzero damage' attacks are a single deal_damage atom.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "snipe_damage",
+   "gloss": "Deal attack damage to a chosen single opponent Pokemon (Active or Bench) of your choice. Bench targets carry the ignore_weakness_resistance_bench modifier per rules. Distinct target-selection flavor of deal_damage; kept separate because policy values 'free target choice'.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "spread_damage",
+   "gloss": "Deal attack damage to multiple/each Pokemon at once (each opponent benched, both benches, two chosen, distributed). Bench portion carries ignore_weakness_resistance_bench. Target slot names the affected set.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "recoil_self",
+   "gloss": "The attacking/holder Pokemon deals damage to ITSELF (recoil) or to its own bench; goes through damage rules and triggers 'when damaged' effects. Distinct from energy/discard self-costs and from place_damage_counter_self.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "modify_damage",
+   "gloss": "Change attack damage output: additive bonus/penalty, per-unit scaling, base-replacement, multiplier, set-to-absolute, or a buff applied to a FUTURE attack / a named attack / another Pokemon's attacks (passive aura). Amount+direction in value/modifiers; the counted resource lives in scaling_ref/condition. Folds the entire boost_damage_per_* / damage_scales_per_* / coin_flip_damage / conditional_bonus_damage / passive_boost tail. On the attacker's own current attack this composes with deal_damage; as a standalone buff it stands alone.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "place_damage_counter",
+   "gloss": "Put damage counters directly on a Pokemon (1 counter = 10 HP); bypasses Weakness/Resistance and most prevention. Count fixed, distributed, scaling, doubled, or 'until remaining HP = N' (to_hp_threshold). Recurring auto-placement on checkup and on-event passive placement fold here via trigger.",
+   "default_unit": "damage_counter"
+  },
+  {
+   "canonical": "move_damage_counter",
+   "gloss": "Relocate EXISTING damage counters between Pokemon: own->own (self-heal/setup), own->opponent (offense + heal combo), or rearrange opponent's freely. Distinct from heal and from placing new counters.",
+   "default_unit": "damage_counter"
+  },
+  {
+   "canonical": "heal",
+   "gloss": "Remove HP damage from a Pokemon (fixed, full, scaling, or drain equal to damage dealt). 'All'/multi-target scope via target+modifiers.",
+   "default_unit": "hp"
+  },
+  {
+   "canonical": "knock_out",
+   "gloss": "Directly Knock Out a Pokemon with no damage calculation (bypasses HP/W/R/heal): conditional, coin-gated, exact-counter, HP-threshold mass-KO, choose-least-HP, mutual/self KO, or discard-target-and-attachments pseudo-KO. Scheduled end-of-next-turn KO uses the delayed_next_turn modifier.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "prevent_knockout",
+   "gloss": "Survive a would-be Knock Out from attack damage, setting remaining HP to a fixed value (e.g. 10); gated on full HP or a coin flip (Sturdy/Endurance).",
+   "default_unit": "hp"
+  },
+  {
+   "canonical": "redirect_ko_destination",
+   "gloss": "When this Pokemon is KO'd by an opponent's attack, it goes to hand/deck instead of the discard pile (attachments usually discarded). Passive KO-redirect.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "apply_special_condition",
+   "gloss": "Inflict a Special Condition (Poison/Burn/Sleep/Paralyze/Confuse) on a target; the specific condition is the value. Multiple conditions in one clause = multiple atoms (multi_status flag). Self-status (drawback/enabler) via target=self. Modified Poison/Burn rate via value+unit.",
+   "default_unit": "special_condition"
+  },
+  {
+   "canonical": "cure_special_condition",
+   "gloss": "Remove Special Condition(s) from a Pokemon, or passively prevent/forbid a condition from applying (status immunity).",
+   "default_unit": "special_condition"
+  },
+  {
+   "canonical": "draw_cards",
+   "gloss": "Draw cards: fixed N, draw-to-hand-size, coin-variable, conditional/bonus, per-bench, both-players (symmetric), or asymmetric. Hand-size target vs fixed count via unit.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "discard_from_hand",
+   "gloss": "Discard cards from a hand: your own (whole hand / N / down-to-count, as cost or effect, often chained with draw) or opponent's (random, chosen-after-reveal, by category, down-to-count) for disruption.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "shuffle_hand_to_deck",
+   "gloss": "Return cards from a hand into the deck (shuffle): your hand->deck (often then draw), force opponent to shuffle hand and redraw, or shuffle chosen/random/specific opponent hand cards into deck (softer than discard).",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "reveal_cards",
+   "gloss": "Reveal/look at hidden information (opponent hand, opponent/your prizes, top of deck for info) with no forced movement. Card-counting riders for scaling attach a scaling_ref to the consumer atom.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "search_deck",
+   "gloss": "Search your deck for cards matching a filter and route them to a destination (hand/bench/attach/top/discard). Card filter (category/type/stage/named/owner-tag/HP-cap/any-number) and destination are parameters. Folds the entire search_deck_* / dig_* / scry-to-take family. Energy-attach-from-deck folds to energy_accelerate.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "manipulate_deck",
+   "gloss": "Look at / reorder / shuffle / stack the top or bottom of a deck (yours or opponent's) without taking cards to hand: scry, reorder, place on top/bottom, shuffle deck, shuffle hand-card-to-top/bottom, deck-hand swap (1-for-1). Cleanup shuffles fold here.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "mill_deck",
+   "gloss": "Discard cards from the top of a deck: opponent's (deck-out/LO pressure), your own (self-mill: deck-thin, discard-pile fuel, cost), or both. Count fixed, per-stage, scaling, or coin-driven. Self-mill feeding a scaling consumer = mill_deck + scaling_ref.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "recover_from_discard",
+   "gloss": "Return card(s) from a discard pile to hand, bench, or top of deck (Pokemon/Energy/named/mixed), or shuffle discard back into deck (recycle/anti-deckout). On-KO/on-evolve recovery folds here via trigger.",
+   "default_unit": "cards"
+  },
+  {
+   "canonical": "energy_accelerate",
+   "gloss": "Attach Energy from a non-standard source (hand-beyond-normal / deck / discard / top-of-deck) onto self/bench/active/typed/owner-tag targets, outside the one-per-turn manual attach. Source pile = condition, destination = target, count/filter = modifiers, repeatability = trigger.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "move_energy",
+   "gloss": "Relocate Energy already in play: own->own, off the attacker to bench, or move opponent's energy among their own Pokemon (de-accel). Distinct from accelerate (no new energy) and discard. Type filter = condition.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "return_energy_to_hand",
+   "gloss": "Move attached Energy back into a hand (your own = recycle, opponent's = soft tempo disruption). Distinct from discard.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "return_energy_to_deck",
+   "gloss": "Shuffle/return Energy (attached or from discard) into the deck, usually as a self-cost or recycle/anti-deckout. Distinct from discard and return-to-hand.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "discard_energy_opp",
+   "gloss": "Discard Energy attached to an opponent's Pokemon (denial): any/typed/special-energy, flat, per-heads, or coin-gated.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "discard_energy_self",
+   "gloss": "Discard Energy from your own Pokemon (cost or rider): flat/all/typed/from-bench/up-to, or from hand. The discarded amount may feed damage scaling via a separate modify_damage atom (cost_effect channel).",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "provide_energy",
+   "gloss": "A Special Energy card provides a fixed/rainbow/choice/conditional amount of Energy while attached (its core printed function), possibly gated on holder category/type. Distinct from acceleration. Self-reattach/self-discard riders use condition_raw.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "discard_stadium",
+   "gloss": "Discard the Stadium card in play (yours, opponent's, or any). Distinct removable board object.",
+   "default_unit": "card"
+  },
+  {
+   "canonical": "discard_tool",
+   "gloss": "Discard Pokemon Tool card(s) attached to a Pokemon (opponent's or any), often 'before doing damage'. Tool+Special-Energy combined removal = one atom with a multi-type filter.",
+   "default_unit": "card"
+  },
+  {
+   "canonical": "nullify_tools",
+   "gloss": "Make all attached Pokemon Tools have no effect WITHOUT discarding them (passive global item-negation).",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "modify_tool_capacity",
+   "gloss": "Change how many Pokemon Tools may be attached to certain Pokemon, with cleanup if the granting ability leaves.",
+   "default_unit": "tool"
+  },
+  {
+   "canonical": "switch_self",
+   "gloss": "Swap your own Active with one of your Benched Pokemon (voluntary pivot; no energy cost, unlike retreat). Attack-rider/ability/on-play/optional variants and bundled energy-move fold here.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "switch_opponent",
+   "gloss": "Force the opponent's Active to the Bench. Modifier you_choose = gust (you pick replacement / snipe a bench threat to front); modifier opponent_chooses = whirlwind/push (opponent picks).",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "return_pokemon_to_hand",
+   "gloss": "Pick up a Pokemon and all attached cards into hand (scoop/reset/redeploy): your own self-bounce or scoop a benched mon, or (rare) bounce an opponent's Pokemon to their hand.",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "shuffle_pokemon_into_deck",
+   "gloss": "Shuffle a Pokemon and all attached cards into the deck (removal): your own (self-bounce/reset/put-on-top) or an opponent's bench/active (hard removal, e.g. selection-inverted bench clears). Distinct from KO and return-to-hand.",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "put_pokemon_onto_bench",
+   "gloss": "Put a Basic Pokemon directly onto a Bench from a zone, including the disruptive case of forcing a Basic onto the OPPONENT's bench (from their deck-top or revealed hand). Self-summon-from-hand abilities fold here.",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "play_as_pokemon",
+   "gloss": "An Item/Fossil played onto the field as if it were a Basic Pokemon with its own HP (and possibly ability), with a voluntary self-discard clause. Cinderace-style during-setup face-down placement folds here via during_setup trigger.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "evolve_pokemon",
+   "gloss": "Evolve a Pokemon via an effect (not the normal hand-evolve step): search-and-evolve, evolve multiple bench mons, skip a stage, or special swap-evolution carrying over state. Granting the TIMING permission to evolve early is grant_evolution_timing.",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "devolve_pokemon",
+   "gloss": "Remove the top Evolution card from an evolved Pokemon, returning it to hand or deck (single-target or mass, own or opponent). Devolved mon often can't re-evolve that turn (rider).",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "grant_evolution_timing",
+   "gloss": "Rules-permission letting a Pokemon evolve earlier than normal (first turn / the turn it was played), often type/name-gated. Not an evolution itself; changes legality.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "counterattack",
+   "gloss": "When this Pokemon is damaged by an attack, retaliate against the Attacking Pokemon: place counters / inflict status / discard energy. Often persists 'even if Knocked Out' (persists_through_ko modifier). Amount may mirror damage taken or scale.",
+   "default_unit": "damage_counter"
+  },
+  {
+   "canonical": "prevent_damage",
+   "gloss": "Prevent attack DAMAGE to a protected target (full, '<=N' threshold, or '>=N' only-if), scoped by duration and attacker-class/zone filters (Basic/ex/type/bench). Coin-gated allowed. NOT effect-prevention. Reduce-by-fixed-amount is reduce_damage. Also covers preventing damage-counter placement.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "reduce_damage",
+   "gloss": "Reduce incoming attack damage by a FIXED amount (before/after W/R per modifier), for self or a team subset, possibly filtered by attacker type/ability. Distinct from full prevention; non-stacking auras common (no_stack).",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "increase_incoming_damage",
+   "gloss": "Make a Pokemon take MORE damage from attacks next turn (vulnerability debuff on the defender) or lower the attacker's own output (Growl-style). Direction via modifiers.",
+   "default_unit": "damage"
+  },
+  {
+   "canonical": "prevent_attack_effects",
+   "gloss": "Prevent the EFFECTS (not damage) of opponent's attacks/abilities/Items/Supporters done to a Pokemon, OR make this attack's damage ignore any effects on the target (penetration). Governed by 'Damage is not an effect'. Includes prevent_damage_and_effects (full invulnerability) variants where both are suppressed.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "ignore_weakness_resistance",
+   "gloss": "Attack damage ignores Weakness and/or Resistance (or only one), or the bench-only W/R-suppression rider on snipe/spread. Modifiers say which and whether bench-only. Modeled as a modifier on damage atoms but kept as an addressable canonical for the standalone raw names.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "modify_weakness_resistance",
+   "gloss": "Passively change/remove a Pokemon's Weakness or Resistance type (rewrite opponent's, or remove own Weakness for a turn). A stat change, distinct from the per-attack ignore modifier.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "modify_max_hp",
+   "gloss": "Change a Pokemon's maximum HP (buff or reduction), flat or per-energy, often type/condition-gated; passive. Distinct from heal. Non-stacking flag common.",
+   "default_unit": "hp"
+  },
+  {
+   "canonical": "change_type",
+   "gloss": "Passively change/add a Pokemon's Energy type(s) while in play (single swap or dual-type), affecting cost payment and Weakness interactions.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "modify_bench_size",
+   "gloss": "Change the maximum Bench size for a player, with discard-down cleanup when the condition/Stadium leaves.",
+   "default_unit": "pokemon"
+  },
+  {
+   "canonical": "prevent_retreat",
+   "gloss": "Stop a Pokemon from retreating (opponent's Active locked, or self-imposed lock). Duration via trigger.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "modify_retreat_cost",
+   "gloss": "Change a Pokemon's Retreat Cost: set to zero (passive, possibly conditional), reduce, or increase (own/opp/team). Signed; passive or one-turn.",
+   "default_unit": "retreat_cost"
+  },
+  {
+   "canonical": "modify_attack_cost",
+   "gloss": "Change the Energy cost to use attacks (self/team/opponent): reduce (often computed from board/discard/prizes), set an alternate cost, conditionally ignore colorless/all, or tax the opponent. Signed energy.",
+   "default_unit": "energy"
+  },
+  {
+   "canonical": "prevent_attack",
+   "gloss": "A Pokemon can't attack: the user self-locks next turn (all attacks or one named attack = recharge/cooldown), the opponent's Pokemon is locked next turn, a named opponent attack is disabled, or a passive 'can't attack unless'. Scope (all vs named) via modifiers.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "disrupt_attack_coin",
+   "gloss": "During the opponent's next turn, the Defending Pokemon must flip a coin to attack; on the wrong side the attack doesn't happen (smokescreen/fog/sand-attack).",
+   "default_unit": "coin_flip"
+  },
+  {
+   "canonical": "attack_does_nothing",
+   "gloss": "Hard all-or-nothing GATE: the attack does nothing (full negation) unless a board/coin/cost/hand-parity/prize condition holds, on the failure side of a coin flip, or if a cost can't be paid. Distinct from reduced damage; the gating condition lives in condition/modifiers.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "coin_flip_branch",
+   "gloss": "A coin flip (or coin pool with a heads-threshold) selects which discrete effect branch resolves; heads-branch and tails-branch each carry their own effect atoms (including inverted 'bad outcome' branches and target-choice-by-flip).",
+   "default_unit": "coin_flip"
+  },
+  {
+   "canonical": "lock_card_play",
+   "gloss": "Prevent a player (usually opponent) from playing a card CATEGORY from hand: Item, Supporter, Stadium, Tool, evolve-from-hand, or ACE SPEC. Duration (next turn vs while-Active passive) and category are parameters.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "lock_ability",
+   "gloss": "Disable/remove Abilities: opponent's Active, all Rule-Box Pokemon (both sides), a board subset, or by predicate (e.g. self-KO abilities). Self-exclusion/typed-exception carve-outs via modifier.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "prevent_return_to_hand",
+   "gloss": "Passive denying the opponent's ability to put Pokemon/attached cards into their hand (counters bounce/pickup).",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "copy_attack",
+   "gloss": "Use another Pokemon's attack as this attack (your bench/discard, opponent's Active, opponent's deck-top, or a name-tag subgroup). Resolved dynamically by the copied attack (Metronome/Foul Play/Seek Inspiration); energy/legality riders may apply. Inherently runtime-resolved.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "copy_card_effect",
+   "gloss": "Execute another card's (non-attack) effect as this effect — e.g. discard top deck card and if a Supporter use its effect. Dynamic/indirect; cannot be statically enumerated.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "extra_attack",
+   "gloss": "Allow using an attack twice, or attacking again after a KO (often Stadium-gated). Multiple-attack permission within one turn.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "grant_attack_permission",
+   "gloss": "Rules-override on turn-order/turn-number attack restrictions: allow (or restrict) attacking on the first turn given who goes first/second. Changes legality, not the board.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "take_prize",
+   "gloss": "Take Prize card(s) decoupled from a Knock Out, or take ADDITIONAL Prize(s) when an opponent Pokemon is KO'd this turn (coin/named/Tera-gated; often non_stacking).",
+   "default_unit": "prize"
+  },
+  {
+   "canonical": "deny_prize_on_ko",
+   "gloss": "When the holder is KO'd, the opponent takes fewer (or zero) Prize cards. Often once-per-game, gated by attacker being an ex, or a named partner in play. Passive.",
+   "default_unit": "prize"
+  },
+  {
+   "canonical": "manipulate_prizes",
+   "gloss": "Manipulate Prizes as a zone without scoring: peek at a face-down prize, flip one face-up permanently (persistent game-state flag), shuffle prizes to deck and reset, or swap a prize with a hand card.",
+   "default_unit": "prize"
+  },
+  {
+   "canonical": "win_game",
+   "gloss": "Win the game outright if a condition is met (alternate win condition, independent of prizes/damage).",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "negotiation_branch",
+   "gloss": "Effect outcome decided by the OPPONENT's choice/consent (ask opponent; yes vs no gives different results, e.g. Lt. Surge's Bargain, Bother-Bot prize swap).",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "end_turn",
+   "gloss": "End the current player's turn as a cost/consequence of using an effect.",
+   "default_unit": "none"
+  },
+  {
+   "canonical": "discard_pokemon_from_play",
+   "gloss": "Discard a Pokemon (and its attached cards) from play directly — not via KO/return/shuffle: self-sacrifice from play, or forced removal. Distinct pseudo-removal bypassing HP/heal and prize-on-KO.",
+   "default_unit": "pokemon"
+  }
+ ],
+ "targets": [
+  "self",
+  "own_active",
+  "own_bench",
+  "own_any",
+  "own_all",
+  "self_bench",
+  "attacking_pokemon",
+  "attached_pokemon",
+  "new_active",
+  "chosen_pokemon",
+  "least_hp_pokemon",
+  "own_group_tagged",
+  "opp_active",
+  "opp_bench",
+  "opp_any",
+  "opp_all",
+  "defending_pokemon",
+  "both_active",
+  "all_pokemon",
+  "all_bench_both",
+  "own_hand",
+  "opp_hand",
+  "both_hands",
+  "own_deck",
+  "opp_deck",
+  "both_decks",
+  "own_discard",
+  "opp_discard",
+  "own_prizes",
+  "opp_prizes",
+  "stadium",
+  "none"
+ ],
+ "units": [
+  "damage",
+  "damage_counter",
+  "hp",
+  "energy",
+  "cards",
+  "card",
+  "pokemon",
+  "prize",
+  "coin_flip",
+  "special_condition",
+  "retreat_cost",
+  "tool",
+  "turn",
+  "hand_size",
+  "none"
+ ],
+ "triggers": [
+  "on_attack",
+  "passive",
+  "on_play",
+  "on_play_to_bench",
+  "on_play_to_evolve",
+  "on_play_trainer",
+  "on_play_item",
+  "on_evolve",
+  "on_devolve",
+  "on_ability_use",
+  "once_per_turn",
+  "unlimited_per_turn",
+  "once_per_game",
+  "when_attached",
+  "when_energy_attached",
+  "when_self_damaged",
+  "when_self_damaged_by_attack",
+  "when_active_damaged",
+  "when_ko",
+  "when_self_ko",
+  "when_would_be_ko",
+  "when_moves_to_active",
+  "when_moves_active_to_bench",
+  "when_opponent_active_moves_to_bench",
+  "when_opponent_evolves",
+  "when_opponent_attacks",
+  "when_opponent_plays_item_or_supporter",
+  "when_pokemon_benched",
+  "when_card_leaves_play",
+  "during_your_turn",
+  "during_your_next_turn",
+  "during_opponent_next_turn",
+  "end_of_your_turn",
+  "end_of_opponent_next_turn",
+  "pokemon_checkup",
+  "first_turn",
+  "during_setup",
+  "while_active",
+  "while_benched",
+  "while_attached"
+ ],
+ "conditions": [
+  "coin_flip",
+  "if_heads",
+  "if_all_heads",
+  "if_tails",
+  "if_you_do",
+  "if_did_effect_succeed",
+  "if_cost_payable_else_fail",
+  "optional",
+  "once_per_turn",
+  "once_per_turn_named",
+  "once_per_game",
+  "per_unit_count",
+  "threshold_count",
+  "comparison",
+  "exact_equality",
+  "opponent_active_is_ex_or_v",
+  "opponent_active_is_evolution",
+  "opponent_active_is_basic",
+  "opponent_active_is_type",
+  "opponent_active_has_resistance_type",
+  "opponent_active_has_status",
+  "opponent_active_has_damage_counters",
+  "self_has_damage_counters",
+  "self_full_hp",
+  "self_undamaged",
+  "self_has_status",
+  "self_low_hp_threshold",
+  "self_healed_this_turn",
+  "self_evolved_this_turn",
+  "self_moved_to_active_this_turn",
+  "energy_attached_requirement",
+  "no_energy_attached",
+  "extra_energy_beyond_cost",
+  "energy_type_attached",
+  "tool_attached",
+  "special_energy_attached",
+  "target_card_category",
+  "target_pokemon_stage",
+  "stadium_in_play",
+  "no_stadium_in_play",
+  "named_pokemon_in_play",
+  "named_card_in_zone",
+  "card_subtype_trait",
+  "owner_name_tag",
+  "type_match_across_board",
+  "has_rule_box",
+  "has_ability",
+  "attacker_class_filter",
+  "target_class_filter",
+  "prize_count_condition",
+  "prize_lead_condition",
+  "hand_size_condition",
+  "hand_size_parity",
+  "board_count_condition",
+  "card_played_this_turn",
+  "own_ko_last_turn",
+  "opp_ko_last_turn",
+  "attack_used_last_turn",
+  "deck_or_discard_count_threshold",
+  "turn_order_first",
+  "turn_order_second",
+  "first_turn_only",
+  "not_first_turn",
+  "mode_choice",
+  "opponent_choice_branch",
+  "condition_raw"
+ ],
+ "cost_effects": [
+  "discard_energy_self",
+  "discard_all_energy_self",
+  "discard_energy_self_scaling",
+  "discard_energy_from_hand",
+  "discard_card_from_hand",
+  "discard_whole_hand",
+  "discard_self_and_attached",
+  "discard_self_from_play",
+  "recoil_self_damage",
+  "place_damage_counter_on_self",
+  "self_ko",
+  "self_inflict_status",
+  "self_attack_lock_next_turn",
+  "self_retreat_lock",
+  "skip_next_attack",
+  "shuffle_self_into_deck",
+  "return_self_to_hand",
+  "return_energy_self_to_hand",
+  "return_energy_self_to_deck",
+  "move_energy_off_self",
+  "self_mill_deck",
+  "put_card_top_of_deck",
+  "put_card_bottom_of_deck",
+  "discard_tool_self",
+  "discard_stadium",
+  "give_opponent_cards",
+  "let_opponent_take_prize",
+  "end_turn"
+ ],
+ "modifiers": [
+  "optional",
+  "scaling",
+  "up_to",
+  "any_number",
+  "any_combination",
+  "free_distribution",
+  "random_selection",
+  "opponent_chooses",
+  "you_choose",
+  "owner_chooses",
+  "attacker_chooses",
+  "repeat_allowed",
+  "coin_flip",
+  "coin_flip_per_unit",
+  "flip_until_tails",
+  "all_coins_heads",
+  "min_heads_threshold",
+  "additive_bonus",
+  "additive_penalty",
+  "base_replacement",
+  "set_value_absolute",
+  "multiplier",
+  "damage_equal_to_damage_taken",
+  "magnitude_ref",
+  "ignore_weakness_resistance",
+  "ignore_weakness_only",
+  "ignore_resistance_only",
+  "ignore_weakness_resistance_bench",
+  "ignore_target_effects",
+  "before_weakness_resistance",
+  "after_weakness_resistance",
+  "is_effect_not_damage",
+  "prevent_also_effects",
+  "prevent_not_damage",
+  "to_hp_threshold",
+  "persists_through_ko",
+  "delayed_next_turn",
+  "duration_this_turn",
+  "duration_next_turn",
+  "duration_opponent_next_turn",
+  "duration_while_active",
+  "duration_while_benched",
+  "duration_permanent",
+  "no_stack",
+  "once_per_turn",
+  "once_per_turn_named",
+  "once_per_game",
+  "named_ability_per_turn_cap",
+  "self_exclusion",
+  "typed_exception",
+  "attacker_class_filter",
+  "target_class_filter",
+  "owner_name_tag",
+  "card_subtype_trait",
+  "card_name_match",
+  "symmetric_both_players",
+  "both_sides_of_board",
+  "basic_energy_only",
+  "special_energy_only",
+  "typed_filter",
+  "destination_zone",
+  "from_hand",
+  "from_deck",
+  "from_discard",
+  "from_topdeck",
+  "reveal_substep",
+  "shuffle_substep",
+  "pre_cost_required",
+  "exact_equality",
+  "multi_status",
+  "mode_choice",
+  "first_turn"
+ ]
+}

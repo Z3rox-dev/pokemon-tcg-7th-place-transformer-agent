@@ -53,6 +53,18 @@ from there:
     cd kaggle_submission
     python ../play_match.py --opponent path/to/your/main.py --games 100
 
+## Two more agents from the same league
+
+Two exploiters trained against this agent during the first round, each a ready bundle built by the
+same builder as the Kaggle one (same code as `kaggle_submission/`, final weights and deck of the round):
+
+- `exploiter_alakazam_nightmine_v5/`: Alakazam deck, final checkpoint at iteration 1759 (9 August).
+- `exploiter_slowking_v3/`: Slowking deck, final checkpoint at iteration 2194 (13 August).
+
+They run like the submission bundle: copy `cg/` into the folder and start `python ../play_match.py`
+from there. Each bundle is self-contained and uses the first-round card pool only. Two of these agents
+cannot be loaded in the same Python process, because they share module names: run one per process.
+
 ## Licence
 
 MIT. The pointer scoring head follows the TargetUnitHead of DI-star (OpenDILab, Apache-2.0).
