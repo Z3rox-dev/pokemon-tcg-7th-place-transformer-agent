@@ -1,4 +1,4 @@
-"""Self-test for the agent. Run it from this folder after copying cg/ in and building the text tables.
+"""Self-test for the agent. Run it from this folder after copying cg/ in.
 
     python self_test.py
 
@@ -109,9 +109,9 @@ emb = ("card_text_emb.npy", "attack_text_emb.npy")
 atom = ("card_atom_feats.npy", "attack_atom_feats.npy")
 print()
 if len(_present(emb)) < len(emb):
-    print("  NOTE: text embeddings missing. Build them with: python build_text_tables.py")
+    print("  NOTE: text embeddings missing. Rebuild them with: python build_text_tables.py")
 if len(_present(atom)) < len(atom):
-    print("  NOTE: effect-atom tables not present (not distributed). The agent differs from the")
+    print("  NOTE: effect-atom tables missing from out/. Without them the agent differs from the")
     print("        submission on 405 of 2,556 recorded decisions (15.8%).")
 
 print()

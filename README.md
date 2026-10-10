@@ -1,25 +1,45 @@
 # Pokémon TCG AI Battle — 7th place agent
 
 The agent of submission 55565305 (7th of 6807, score 1226.6): a 10.7M-parameter transformer with a GRU
-belief core that scores the legal actions the engine offers at each decision.
+belief core that scores the legal actions the engine offers at each decision. It plays the
+Dragapult / Blaziken deck in `deck.csv`.
 
 This repository holds only the final version used for the submission, distilled from my research
 workspace. The experiments and the trial-and-error that led to it stay in that workspace.
 
 ## Run
 
-1. Copy the competition engine package (`cg/`) into this folder.
-2. `pip install torch numpy sentence-transformers`
-3. `python build_text_tables.py` rebuilds the card and attack text embeddings from the engine.
-4. `python self_test.py` loads `model.pth` and plays two games.
+1. Copy the competition engine package (`cg/`) of the first round into this folder (1,267 cards).
+2. `pip install torch numpy`
+3. `python self_test.py` loads `model.pth` and plays two games. It ends with `RESULT: agent runs.`
 
-`main.py` is the Kaggle entry point.
+`main.py` is the Kaggle entry point: it defines `agent(obs)`. Everything runs on CPU.
 
-## Not included
+## Play against it
 
-The competition engine, and the effect-feature tables `out/card_atom_feats.npy` and
-`out/attack_atom_feats.npy`, which were extracted from card text. Without the effect features the agent
-runs, but chooses a different action on 405 of 2,556 recorded decisions of the submission (15.8%).
+    python play_match.py --opponent path/to/your/main.py --games 100
+
+The opponent is a Python file that defines `agent(obs) -> list[int]` with the Kaggle contract: called
+with `obs["select"] is None` it returns its 60-card deck, otherwise the indices of the chosen options.
+Seats alternate every game. `--opponent-deck deck.csv` overrides the opponent's deck, `--log games.jsonl`
+writes one line per game, and with no `--opponent` the agent plays a random opponent.
+
+To drive the agent from your own loop instead, call it once with `select` set to `None` before every
+game: that is where it resets its recurrent state and its trackers. Without that call the state of the
+previous game leaks into the next one.
+
+## Card tables
+
+`out/` holds the four tables of the submission, indexed by the card and attack ids of the first-round
+engine:
+
+- `card_text_emb.npy`, `attack_text_emb.npy`: frozen sentence embeddings of the card and attack text.
+  `python build_text_tables.py` rebuilds them from the engine (needs `pip install sentence-transformers`).
+- `card_atom_feats.npy`, `attack_atom_feats.npy`: effect features extracted from card text. They
+  cannot be rebuilt from this repository. Without them the agent runs, but chooses a different action on
+  405 of 2,556 recorded decisions of the submission (15.8%).
+
+The engine itself is not included.
 
 ## Licence
 

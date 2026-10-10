@@ -1,8 +1,8 @@
 """Per-card and per-attack lookup tables, read once at import.
 
-  out/card_text_emb.npy      (card_count, 768)             built by build_text_tables.py
-  out/card_atom_feats.npy    (card_count, ATOM_FEAT_DIM)   not distributed
-  out/attack_atom_feats.npy  (attack_count, ATOM_FEAT_DIM) not distributed
+  out/card_text_emb.npy      (card_count, 768)             rebuilt by build_text_tables.py
+  out/card_atom_feats.npy    (card_count, ATOM_FEAT_DIM)   effect features, cannot be rebuilt
+  out/attack_atom_feats.npy  (attack_count, ATOM_FEAT_DIM) effect features, cannot be rebuilt
 
 A missing file gives an all-zero table and one log line. Lookups never raise: an unknown or out-of-range id
 returns a zero vector.
