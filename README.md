@@ -41,6 +41,18 @@ engine:
 
 The engine itself is not included.
 
+## The submission bundle as uploaded
+
+`kaggle_submission/` is the content of the archive uploaded to Kaggle for submission 55565305, file
+for file, with two things taken out: the engine package `cg/`, and the `raw_text` field of
+`out/card_schema.jsonl`, which the code never reads (the tables it loads are identical without it).
+The code there is the working version, with its original comments in Italian; the root of this
+repository is the same agent cleaned up. To run it, copy `cg/` into that folder and start the runner
+from there:
+
+    cd kaggle_submission
+    python ../play_match.py --opponent path/to/your/main.py --games 100
+
 ## Licence
 
 MIT. The pointer scoring head follows the TargetUnitHead of DI-star (OpenDILab, Apache-2.0).
